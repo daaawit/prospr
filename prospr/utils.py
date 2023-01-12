@@ -8,6 +8,36 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import parameters_to_vector
 
+def print_scores(keep_masks, names):
+    """Printing in style of my master's thesis for sanity checking
+
+    Args:
+        keep_masks (list): List of masks produced by ProsPr
+        names (list): List of names of pruned layers (for printing style only)
+    """
+    head_str = f"| {'Layer':<32}| {'Before':<14}| {'After':<14}| {'Ratio':<10}|"
+    head_sep = "=" * len(head_str)
+    print(head_sep)
+    print(head_str)
+    print(head_sep)
+    
+    full_numel = 0
+    full_numprune = 0
+    for name, mask in zip(names, keep_masks): 
+
+        numel = torch.numel(mask)
+        numprune = torch.numel((mask == 1))
+        ratio = round(numprune / numel, 4)
+        
+        layer_info = f"| - {name:<30}| {numel:<14}| {numprune:<14}| {ratio:<10}|"
+        print(layer_info)
+        
+        full_numel += numel
+        full_numprune += numprune
+    
+    print(head_sep, "\n")
+    return full_numel, full_numprune
+
 def attach_masks_as_parameter(
     net: nn.Module,
     masks_init_values: Optional[List[torch.Tensor]] = None,
@@ -112,13 +142,13 @@ def keep_mask_from_scores(
     num_to_keep = ceil(len(scores_vec) * keep_ratio)
 
     keep_mask = torch.zeros_like(scores_vec, dtype=torch.float32)
-    _, keep_idx = torch.topk(scores_vec, num_to_keep)
+    scores, keep_idx = torch.topk(scores_vec, num_to_keep)
     keep_mask[keep_idx] = 1.0
 
     if uncat_ref:
         keep_mask = uncat_as(keep_mask, uncat_ref)
 
-    return keep_mask
+    return scores[-1], keep_mask
 
 
 def keep_masks_stats(keep_masks: Iterable[torch.Tensor]):

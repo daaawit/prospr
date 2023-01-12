@@ -223,7 +223,6 @@ def prune(
 
     # We _may_ decide to push things to the CPU so remember the actual device used
     device_orig = next(net.parameters()).device
-    net_orig = net
 
     net = deepcopy(net)
     net.train()
@@ -302,16 +301,19 @@ def prune(
     end_time = datetime.now()
     print(f"⏰ Finished ProsPr in {end_time - start_time}")
 
-    if return_scores:
-        return [score.to(device_orig) for score in scores]
-
     scores_vec = torch.cat([score.flatten() for score in scores])
-    keep_masks = utils.keep_mask_from_scores(scores_vec, 1 - prune_ratio, weight_masks)
+    acceptable_score, keep_masks = utils.keep_mask_from_scores(scores_vec, 1 - prune_ratio, weight_masks)
+    
+    names = [name for name, layer in net.named_modules() if isinstance(layer, (nn.Linear, nn.Conv2d))]
+    numel, numprune = utils.print_scores(keep_masks, names)
+    
+    print(f"- Intended prune ratio:\t{prune_ratio}")
+    print(f"- Actual prune ratio:\t{numprune / numel}")
+    print(f"- Threshold:            {acceptable_score}")
 
     # Push keep_masks to the original device (in case device_orig != device)
     keep_masks = [mask.to(device_orig) for mask in keep_masks]
-
-    utils.keep_masks_stats(keep_masks)
+    
     utils.keep_masks_health_check(keep_masks)
 
     return keep_masks
