@@ -94,11 +94,14 @@ def apply_masks_with_hooks(net, keep_masks, return_clone=True):
 
         keep_masks = keep_masks_list
 
-    for layer, keep_mask in zip(prunable_layers, keep_masks):
-        assert layer.weight.shape == keep_mask.shape
+    for i, (layer, keep_mask) in enumerate(zip(prunable_layers, keep_masks)):
+        if i == 0:
+            continue
+        else:
+            assert layer.weight.shape == keep_mask.shape
 
-        layer.register_buffer("keep_mask", keep_mask)
-        layer.register_forward_pre_hook(_pre_forward_hook)
+            layer.register_buffer("keep_mask", keep_mask)
+            layer.register_forward_pre_hook(_pre_forward_hook)
 
     return net
 

@@ -2,7 +2,7 @@ import types
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
-from typing import Callable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -314,8 +314,4 @@ def prune(
     utils.keep_masks_stats(keep_masks)
     utils.keep_masks_health_check(keep_masks)
 
-    pruned_net = utils.apply_masks_with_hooks(
-        net_orig, keep_masks
-    )
-
-    return pruned_net, keep_masks
+    return keep_masks
