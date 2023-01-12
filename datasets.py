@@ -5,12 +5,79 @@ from typing import Optional
 
 import requests
 import torch
+from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.datasets.utils import check_integrity
 from tqdm import tqdm
 
+def dataloader_factory(
+    dataset: str,
+    batch_size=128,
+    root: Path = Path.home() / "datasets",
+    val_from_train: Optional[float] = None,
+) -> tuple[DataLoader, DataLoader, DataLoader, int]:
+    """Main function for loading in data
 
-def get_cifar10(root):
+    Args:
+        dataset (str): Dataset to choose from. Use any of ["cifar10", "cifar100", "tiny_imagenet", "imagenet"].
+        batch_size (int, optional): Batch size. Defaults to 128.
+        root (Path, optional): Root in which data is stored. Defaults to Path.home()/"datasets".
+        val_from_train (Optional[float], optional): Amount of data to use for validation. Defaults to None.
+
+    Returns:
+        tuple[DataLoader, DataLoader, DataLoader, int]: train DataLoader, validation DataLoader, test DataLoader, number of classes. 
+        If `val_from_train` is set to None, the second element (validation DataLoader) will be None as well.
+    """
+    
+    
+    dataset_getters = {
+        "cifar10": get_cifar10,
+        "cifar100": get_cifar100,
+        "tiny_imagenet": get_tiny_imagenet,
+        "imagenet": get_imagenet,
+    }
+
+    num_classes, train_dataset, test_dataset = dataset_getters[dataset](root)
+
+    if dataset in ["imagenet", "imagenet_dogs", "imagenet_notdogs"]:
+        kwargs = {
+            "num_workers": int(os.getenv("SLURM_CPUS_ON_NODE", 6)),
+            "pin_memory": True}
+    else:
+        kwargs = {"num_workers": 4, "pin_memory": True}
+
+    if val_from_train:
+        val_len = int(len(train_dataset) * val_from_train)
+        train_len = len(train_dataset) - val_len
+        train_dataset, val_dataset = torch.utils.data.random_split(
+            train_dataset, [train_len, val_len]
+        )
+
+        val_loader = torch.utils.data.DataLoader(
+            val_dataset, batch_size=batch_size, shuffle=True, **kwargs
+        )
+    else:
+        val_loader = None
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, **kwargs
+    )
+
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False, **kwargs
+    )
+
+    return train_loader, val_loader, test_loader, num_classes
+
+def get_cifar10(root: Path) -> tuple[int, DataLoader, DataLoader]:
+    """Load cifar10 data
+
+    Args:
+        root (Path): Path to root folder.
+
+    Returns:
+         tuple[int, DataLoader, DataLoader]: number of classes, train DataLoader, test DataLoader, 
+    """
     num_classes = 10
     train_transform = transforms.Compose(
         [
@@ -37,7 +104,15 @@ def get_cifar10(root):
     return num_classes, train_dataset, test_dataset
 
 
-def get_cifar100(root):
+def get_cifar100(root) -> tuple[int, DataLoader, DataLoader]:
+    """Load cifar100 data
+
+    Args:
+        root (Path): Path to root folder.
+
+    Returns:
+         tuple[int, DataLoader, DataLoader]: number of classes, train DataLoader, test DataLoader, 
+    """
     num_classes = 100
 
     train_transform = transforms.Compose(
@@ -65,7 +140,19 @@ def get_cifar100(root):
     return num_classes, train_dataset, test_dataset
 
 
-def get_imagenet(root: Path, standardize=True):
+def get_imagenet(root: Path, standardize=True) -> tuple[int, DataLoader, DataLoader]:
+    """Get Imagenet data. Uses the validation dataset as source for test data.
+
+    Args:
+        root (Path): Path to root folder.
+        standardize (bool, optional): Whether to normalize images. Defaults to True.
+
+    Raises:
+        FileNotFoundError: If folder for ImageNet does not exist.
+
+    Returns:
+        tuple[int, DataLoader, DataLoader]: number of classes, train DataLoader, test DataLoader (from validation data)
+    """
 
     num_classes = 1000
 
@@ -119,7 +206,18 @@ def get_imagenet(root: Path, standardize=True):
     return num_classes, train, val
 
 
-def get_tiny_imagenet(root: Path):
+def get_tiny_imagenet(root: Path) -> tuple[int, DataLoader, DataLoader]:
+    """Loads tiny imagenet data, with own custom loader.
+
+    Args:
+        root (Path): Path to root folder.
+
+    Raises:
+        OSError: If checksum for Download could not be validated.
+
+    Returns:
+        tuple[int, DataLoader, DataLoader]: number of classes, train DataLoader, test DataLoader (from validation data)
+    """
     num_classes = 200
 
     if not (root / "tiny-imagenet-200").exists():
@@ -182,51 +280,3 @@ def get_tiny_imagenet(root: Path):
     )
 
     return num_classes, train_dataset, test_dataset
-
-
-def dataloader_factory(
-    dataset: str,
-    batch_size=128,
-    root: Path = Path.home() / "datasets",
-    val_from_train: Optional[float] = None,
-):
-
-    dataset_getters = {
-        "cifar10": get_cifar10,
-        "cifar100": get_cifar100,
-        "tiny_imagenet": get_tiny_imagenet,
-        "imagenet": get_imagenet,
-    }
-
-    num_classes, train_dataset, test_dataset = dataset_getters[dataset](root)
-
-    if dataset in ["imagenet", "imagenet_dogs", "imagenet_notdogs"]:
-        kwargs = {
-            "num_workers": int(os.getenv("SLURM_CPUS_ON_NODE", 6)),
-            "pin_memory": True,
-        }
-    else:
-        kwargs = {"num_workers": 4, "pin_memory": True}
-
-    if val_from_train:
-        val_len = int(len(train_dataset) * val_from_train)
-        train_len = len(train_dataset) - val_len
-        train_dataset, val_dataset = torch.utils.data.random_split(
-            train_dataset, [train_len, val_len]
-        )
-
-        val_loader = torch.utils.data.DataLoader(
-            val_dataset, batch_size=batch_size, shuffle=True, **kwargs
-        )
-    else:
-        val_loader = None
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, **kwargs
-    )
-
-    test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False, **kwargs
-    )
-
-    return train_loader, val_loader, test_loader, num_classes
