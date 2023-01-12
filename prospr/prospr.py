@@ -198,7 +198,6 @@ def prune(
     inner_momentum: float,
     method: str = "full",
     new_data_in_inner: bool = True,
-    return_scores: bool = False,
 ) -> List[torch.Tensor]:
     """Main pruning functionality.
 

@@ -2,8 +2,6 @@
 
 This repo is a **fork** of [mil-ad/prospr](https://github.com/mil-ad/prospr) that I modified to my needs. **The actual implementation is not mine**, but the original author's. The corresponding paper to the method can be found on ArXiV: [Alizadeh et al. (2022)](https://arxiv.org/abs/2202.08132).
 
-The code for **"Prospect Pruning: Finding Trainable Weights at Initialization Using Meta-Gradients"**
-
 ## Changes I made 
 
 For my master's thesis , I rewrote the ProsPr method in a more efficient way that makes use of the prune function that is built in to PyTorch. I'm using the original code as a sanity-checking method, to compare my results at the original results and see whether Im implementation works. To be able to do this, I applied the following changes to this repo: 
