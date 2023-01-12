@@ -39,13 +39,6 @@ def dataloader_factory(
 
     num_classes, train_dataset, test_dataset = dataset_getters[dataset](root)
 
-    if dataset in ["imagenet", "imagenet_dogs", "imagenet_notdogs"]:
-        kwargs = {
-            "num_workers": int(os.getenv("SLURM_CPUS_ON_NODE", 6)),
-            "pin_memory": True}
-    else:
-        kwargs = {"num_workers": 4, "pin_memory": True}
-
     if val_from_train:
         val_len = int(len(train_dataset) * val_from_train)
         train_len = len(train_dataset) - val_len
@@ -54,17 +47,17 @@ def dataloader_factory(
         )
 
         val_loader = torch.utils.data.DataLoader(
-            val_dataset, batch_size=batch_size, shuffle=True, **kwargs
+            val_dataset, batch_size=batch_size, shuffle=True
         )
     else:
         val_loader = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, **kwargs
+        train_dataset, batch_size=batch_size, shuffle=True
     )
 
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False, **kwargs
+        test_dataset, batch_size=batch_size, shuffle=False
     )
 
     return train_loader, val_loader, test_loader, num_classes
