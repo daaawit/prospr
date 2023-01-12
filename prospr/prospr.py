@@ -7,6 +7,7 @@ from typing import Callable, List, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
 import prospr.utils as utils
 
@@ -190,17 +191,35 @@ def compute_meta_grads(net, x, y, fast_params, detailed_params, weight_masks, me
 
 def prune(
     net: nn.Module,
-    prune_ratio,
-    dataloader,
-    filter_fn: Callable,
+    prune_ratio: float,
+    dataloader: DataLoader,
     num_steps: int,
     inner_lr: float,
     inner_momentum: float,
     method: str = "full",
+    filter_fn: Callable = utils.pruning_filter_factory,
     structured: bool = False,
     new_data_in_inner: bool = True,
     return_scores: bool = False,
 ) -> List[torch.Tensor]:
+    """Main pruning functionality.
+
+    Args:
+        net (nn.Module): The model to prune
+        prune_ratio (float): The ratio to prune at
+        dataloader (DataLoader): DataLoader for training data
+        num_steps (int): Number of steps ProsPr takes
+        inner_lr (float): LR for ProsPr steps
+        inner_momentum (float): Momentum for ProsPr steps
+        method (str, optional): ?. Defaults to "full".
+        structured (bool, optional): Whether to apply structured pruning. Defaults to False.
+        filter_fn (Callable): Only relevant for structured pruning. Changes effect on output layer. 
+        new_data_in_inner (bool, optional): ?. Defaults to True.
+        return_scores (bool, optional): ?. Defaults to False.
+
+    Returns:
+        List[torch.Tensor]: _description_
+    """
 
     assert method in ("full", "first_order")
 
