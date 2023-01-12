@@ -1,72 +1,25 @@
-# Prospect Pruning (ProsPr)
+# Important
 
-[![arXiv](https://img.shields.io/badge/arXiv-2202.08132-red)](https://arxiv.org/abs/2202.08132)
-![PyTorch v1.9.1](https://img.shields.io/badge/PyTorch-v1.9.1-orange)
-![license: MIT](https://img.shields.io/github/license/mil-ad/prospr)
-[![Follow @notmilad](https://img.shields.io/twitter/follow/notmilad?style=social)](https://twitter.com/intent/follow?screen_name=notmilad)
+This repo is a **fork** of [mil-ad/prospr](https://github.com/mil-ad/prospr) that I modified to my needs. **The actual implementation is not mine**, but the original author's. The corresponding paper to the method can be found on ArXiV: [Alizadeh et al. (2022)](https://arxiv.org/abs/2202.08132).
 
 The code for **"Prospect Pruning: Finding Trainable Weights at Initialization Using Meta-Gradients"**
 
-## Installation
+## Changes I made 
 
-### 1️⃣ Reproducing results
+For my master's thesis , I rewrote the ProsPr method in a more efficient way that makes use of the prune function that is built in to PyTorch. I'm using the original code as a sanity-checking method, to compare my results at the original results and see whether Im implementation works. To be able to do this, I applied the following changes to this repo: 
 
-You can replicate the development environment and use the same models and training script used in the paper with:
+* Moved from `python=3.8` to `python=3.10.8`
+* Moved from `pytorch=1.9.1` to `pytorch=1.13.1`
+  * Required minor changes to different `for` loops, where instance must be checked to avoid errors 
+* Added some docstrings for functions I found confusing at first
+* Removed anything related to structured pruning as it is irrelevant for my use case
+* Removed anything after computing the pruning masks (i.e. application and training), as I don't need the overhead for checking the pruning method (which is done at initialization)
+* For my project, I will only require the files from the prospr folder, but I added things to check if the method works with my data/model
+  * Use `timm` to load the models instead of the custom-built models by the authors
+  * Use the dataloader from my thesis instead of the author's
+    * Since I'm CPU bound (for now), I only work with CIFAR10 data here
+  * Removed CLI functionality, added main instead
 
-```
-$ conda env create -f environment.yml
-```
-
-If you'd like to use the exact same package versions we used:
-
-```
-$ conda env create -f environment_pinned.yml
-```
 
 
-This will create the Conda environment `prospr`. The project's entry point is [`cli.py`](https://github.com/mil-ad/prospr/blob/main/cli.py)
-
-To see the available options and switches:
-
-```
-$ python cli.py -h
-```
-
-### 2️⃣ As a package
-
-You can also install and use ProsPr as a package inside your own projects:
-
-```
-$ pip install git+ssh://git@github.com/mil-ad/prospr.git
-```
-
-The `prospr` package can then be imported and used:
-
-```py
-import prospr
-
-help(prospr)
-
-pruned_model = prospr.prune(
-    model,
-    prune_ratio=0.98,
-    dataloader=train_dataloader,
-    filter_fn=prune_filter_fn,
-    num_steps=3,
-    inner_lr=0.5,
-    inner_momentum=0.9,
-)
-```
-
-## Citation
-
-```tex
-@article{alizadeh2022prospect,
-  title = {Prospect Pruning: Finding Trainable Weights at Initialization using Meta-Gradients},
-  author = {Alizadeh, Milad and Tailor, Shyam A. and Zintgraf, Luisa M and van Amersfoort, Joost and Farquhar, Sebastian and Lane, Nicholas Donald and Gal, Yarin},
-  booktitle = {International Conference on Learning Representations},
-  year = {2022}
-}
-```
-
-[![back to top](https://img.shields.io/badge/back%20to%20top-%E2%86%A9-blue)](#prospect-pruning-prospr)
+  
