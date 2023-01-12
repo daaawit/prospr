@@ -197,8 +197,6 @@ def prune(
     inner_lr: float,
     inner_momentum: float,
     method: str = "full",
-    filter_fn: Callable = utils.pruning_filter_factory,
-    structured: bool = False,
     new_data_in_inner: bool = True,
     return_scores: bool = False,
 ) -> List[torch.Tensor]:
@@ -212,8 +210,6 @@ def prune(
         inner_lr (float): LR for ProsPr steps
         inner_momentum (float): Momentum for ProsPr steps
         method (str, optional): ?. Defaults to "full".
-        structured (bool, optional): Whether to apply structured pruning. Defaults to False.
-        filter_fn (Callable): Only relevant for structured pruning. Changes effect on output layer. 
         new_data_in_inner (bool, optional): ?. Defaults to True.
         return_scores (bool, optional): ?. Defaults to False.
 
@@ -249,9 +245,6 @@ def prune(
 
     weight_masks = utils.attach_masks_as_parameter(
         net,
-        filter_fn,
-        structured=structured,
-        gradient_tie=False,
         make_weights_constants=False,
         override_forward=False,
     )
@@ -322,7 +315,7 @@ def prune(
     utils.keep_masks_health_check(keep_masks)
 
     pruned_net = utils.apply_masks_with_hooks(
-        net_orig, keep_masks, structured, filter_fn
+        net_orig, keep_masks
     )
 
     return pruned_net, keep_masks

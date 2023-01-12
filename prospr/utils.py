@@ -1,38 +1,15 @@
 import copy
 import types
 from math import ceil
-from typing import Callable, Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import parameters_to_vector
 
-
-def pruning_filter_factory(num_classes: int, structured: bool):
-    """
-    By default we're pruning all nn.Linear and nn.Conv2d layers. In case of structured
-    pruning we have to exclude the very last nn.Linear layer as its shape needs to match
-    number of classes.
-    """
-
-    def filter_fn(m):
-        if isinstance(m, nn.Conv2d):
-            return True
-        elif isinstance(m, nn.Linear):
-            if structured and m.out_features == num_classes:
-                return False
-            else:
-                return True
-
-    return filter_fn
-
-
 def attach_masks_as_parameter(
     net: nn.Module,
-    filter_fn: Callable,
-    structured: bool,
-    gradient_tie: bool,
     masks_init_values: Optional[List[torch.Tensor]] = None,
     override_forward: bool = True,
     make_weights_constants: bool = True,
@@ -59,35 +36,19 @@ def attach_masks_as_parameter(
         masks_init_values = iter(masks_init_values)
 
     for name, layer in net.named_modules():
-        if not filter_fn(layer):
-            continue
-
-        if structured:
-            if gradient_tie and (
-                "downsample" in name or ("n_block" in name and "conv2" in name)
-            ):
-                # tie the weight mask of conv and downsample layer
-                layer.weight_mask = last_layer.weight_mask
-            else:
-                # Same channels, 1 all other dimensions
-                shape = [layer.weight.shape[0]] + [1] * (layer.weight.ndim - 1)
-                layer.weight_mask = nn.Parameter(
-                    torch.ones(shape, device=layer.weight.device)
-                )
-
-        else:
+        if isinstance(layer, (nn.Conv2d, nn.Linear)):
             layer.weight_mask = nn.Parameter(torch.ones_like(layer.weight))
 
-        if masks_init_values:
-            layer.weight_mask.data[:] = next(masks_init_values)[:]
+            if masks_init_values:
+                layer.weight_mask.data[:] = next(masks_init_values)[:]
 
-        all_weight_masks.append(layer.weight_mask)
+            all_weight_masks.append(layer.weight_mask)
 
-        if make_weights_constants:
-            layer.weight.requires_grad = False
+            if make_weights_constants:
+                layer.weight.requires_grad = False
 
-        if "ds_block" in name or last_layer is None:
-            last_layer = layer
+            if "ds_block" in name or last_layer is None:
+                last_layer = layer
 
         if override_forward:
             if isinstance(layer, nn.Conv2d):
@@ -109,24 +70,20 @@ def _pre_forward_hook(m, x):
         m.weight.data = m.weight.data * m.keep_mask
 
 
-def apply_masks_with_hooks(net, keep_masks, structured, filter_fn, return_clone=True):
+def apply_masks_with_hooks(net, keep_masks, return_clone=True):
 
     if return_clone:
         net = copy.deepcopy(net)
 
-    prunable_layers = filter(filter_fn, net.modules())
+    prunable_layers = net.modules()
 
     if isinstance(keep_masks, torch.Tensor):
         # keep masks need to be reshaped first
         pointer = 0
         keep_masks_list = []
         for layer in prunable_layers:
-            if structured:
-                num_param = layer.weight.shape[0]
-                shape = layer.weight.shape[0]
-            else:
-                num_param = layer.weight.numel()
-                shape = layer.weight.shape
+            num_param = layer.weight.numel()
+            shape = layer.weight.shape
 
             keep_masks_list.append(
                 keep_masks[pointer : pointer + num_param].view(shape)
@@ -138,10 +95,7 @@ def apply_masks_with_hooks(net, keep_masks, structured, filter_fn, return_clone=
         keep_masks = keep_masks_list
 
     for layer, keep_mask in zip(prunable_layers, keep_masks):
-        if structured:
-            assert layer.weight.shape[0] == keep_mask.shape[0]
-        else:
-            assert layer.weight.shape == keep_mask.shape
+        assert layer.weight.shape == keep_mask.shape
 
         layer.register_buffer("keep_mask", keep_mask)
         layer.register_forward_pre_hook(_pre_forward_hook)
